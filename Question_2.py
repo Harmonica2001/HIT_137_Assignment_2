@@ -7,25 +7,33 @@ Najmus Sakeeb= s393942
 """
 
 
-#%%
+#%% 
+# Declaration of libraries
+
 import pandas as pd 
 import numpy as np
 import glob
 import os
-
+import statistics as st
 
 #Question 2 Seasonal Average
-#%%
+# Create empty files for outputs
+
 file_name = "average_temp.txt"
 content = ""
 with open(file_name, "w") as file:
     file.write(content)
-#%%
+   
+file_name_2 = "largest_temp_range_station.txt"
+with open(file_name_2, "w") as file:
+    file.write(content)
+       
+file_name_3 = "temperature_stability_stations.txt"
+with open(file_name_3, "w") as file:
+    file.write(content)
+
+
 df = pd.read_csv('temperatures\stations_group_1986.csv')
-
-
-#%%
-
 def read_and_concat_csv(folder_path):
     # Get all CSV files in the folder
     csv_files = glob.glob(os.path.join(folder_path, "*.csv"))
@@ -72,3 +80,114 @@ Spring: {spring_avg}°C
 with open(file_name, "w") as f:
     f.write(output_text)
 
+# Question 2 Temparature Range 
+
+df_sorted = df.sort_values(by=df.columns[0], key=lambda col: col.astype(str))
+df_sorted = df_sorted.reset_index(drop=True)
+
+def calculate_range(df_sorted):
+    # Define the number of columns to consider for max, min, and range calculations
+    cols_to_consider = df_sorted.columns[4:]
+
+    # Initialize lists to store results
+    first_values = []
+    max_values = []
+    min_values = []
+    ranges = []
+
+    # Iterate over groups of 20 rows
+    for i in range(0, len(df_sorted), 20):
+        group = df_sorted.iloc[i:i+20]
+
+        # Get the first value from the first column
+        first_value = group.iloc[0, 0]
+        first_values.append(first_value)
+
+        # Calculate max, min, and range for the group
+        group_max = group[cols_to_consider].max().values
+        group_min = group[cols_to_consider].min().values
+
+        # Append max, min, and range values to lists
+        max_values.append(group_max)
+        min_values.append(group_min)
+
+    # Create a new dataframe with the results
+    df_new = pd.DataFrame({
+        'Station_Name': first_values,
+        'Max Values': max_values,
+        'Min Values': min_values,
+    })
+    max_col = 'Max Values'
+    min_col = 'Min Values'
+
+    # Calculate max and min values for each list
+    df_new['Max'] = df_new[max_col].apply(lambda x: max(x))
+    df_new['Min'] = df_new[min_col].apply(lambda x: min(x))
+
+    # Calculate range for each list
+    df_new['Highest_Range'] = df_new.apply(lambda row: row['Max'] - row['Min'], axis=1)
+    df_new = df_new.drop(columns=[max_col, min_col])
+    return df_new
+    
+df_new = calculate_range(df_sorted)
+results = df_new.loc[[df_new['Highest_Range'].idxmax()]].reset_index(drop=True, inplace=False)
+
+# finding the row with the higheest range its corresponding max and min values
+Max_range = results["Highest_Range"].values[0]
+Max_station = results['Station_Name'].values[0]      
+Max_value = results["Max"].values[0]
+Min_value = results["Min"].values[0]
+
+output_text_2 = f"""
+Station {Max_station}: Range {Max_range:.1f}°C(Max: {Max_value:.1f}°C, Min: {Min_value:.1f}°C)"""
+with open(file_name_2, "w") as f:
+    f.write(output_text_2)
+
+# Question 3 Temperature Stability
+
+def calculate_SD(df_sorted):
+    # Define the number of columns to consider for max, min, and range calculations
+    cols_to_consider = df_sorted.columns[4:]
+
+    # Initialize lists to store results
+    first_values = []
+    SD_values = []
+
+
+    # Iterate over groups of 20 rows
+    for i in range(0, len(df_sorted), 20):
+        group = df_sorted.iloc[i:i+20]
+
+        # Get the first value from the first column
+        first_value = group.iloc[0, 0]
+        first_values.append(first_value)
+
+        # Calculate max, min, and range for the group
+        group_SD = group[cols_to_consider].stack().std()
+            
+        SD_values.append(group_SD)
+
+    # Create a new dataframe with the results
+    df_new = pd.DataFrame({
+        'Station_Name': first_values,
+        'SD Values': SD_values,
+    })
+    
+    
+    return df_new
+df_new = calculate_SD(df_sorted)
+
+SD_max_results = df_new.loc[[df_new['SD Values'].idxmax()]].reset_index(drop=True, inplace=False)
+SD_min_results = df_new.loc[[df_new['SD Values'].idxmin()]].reset_index(drop=True, inplace=False)
+# finding the row with the higheest range its corresponding max and min values
+MostStable_SD_Station = SD_max_results["Station_Name"].values[0]
+MostVariable_SD_Station = SD_min_results["Station_Name"].values[0]
+MostStable_SD_Value = SD_max_results["SD Values"].values[0]
+MostVariable_SD_Value = SD_min_results["SD Values"].values[0]
+
+output_text_3 = f"""
+Most Stable: Station {MostStable_SD_Station}: StdDev {MostStable_SD_Value:.1f}°C
+Most Variable: Station {MostVariable_SD_Station}: StdDev {MostVariable_SD_Value:.1f}°C"""
+
+with open(file_name_3, "w") as f:
+    f.write(output_text_3)
